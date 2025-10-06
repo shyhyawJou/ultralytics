@@ -48,7 +48,6 @@ class OBBTrainer(yolo.detect.DetectionTrainer):
             overrides = {}
         overrides["task"] = "obb"
         super().__init__(cfg, overrides, _callbacks)
-        self.loss_fn = overrides.get('loss_fn', 'probiou')
 
     def get_model(
         self, cfg: str | dict | None = None, weights: str | Path | None = None, verbose: bool = True
@@ -69,7 +68,7 @@ class OBBTrainer(yolo.detect.DetectionTrainer):
             >>> trainer = OBBTrainer()
             >>> model = trainer.get_model(cfg="yolo11n-obb.yaml", weights="yolo11n-obb.pt")
         """
-        model = OBBModel(cfg, nc=self.data["nc"], ch=self.data["channels"], verbose=verbose and RANK == -1, loss_fn=self.loss_fn)
+        model = OBBModel(cfg, nc=self.data["nc"], ch=self.data["channels"], verbose=verbose and RANK == -1)
         if weights:
             model.load(weights)
 

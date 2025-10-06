@@ -369,8 +369,8 @@ def SGKLD_loss(obb1, obb2):
         - d * 4 * (sin_ * cos3 / w_p4 - cos_ * sin3 / h_p4)
         + e * (cos4 / w_p4 + sin4 / h_p4)
     )
-
-    loss = (1 - 1 / (1 + torch.log(1 + sgkld_dist.squeeze()))).mean()
+    print('=' * 100, sgkld_dist.shape)
+    loss = (1 - 1 / (1 + torch.log(1 + sgkld_dist.view(-1)))).mean()
     return loss
 
 

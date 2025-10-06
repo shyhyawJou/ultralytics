@@ -13,7 +13,7 @@ from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
 from ultralytics.utils.tal import RotatedTaskAlignedAssigner, TaskAlignedAssigner, dist2bbox, dist2rbox, make_anchors
 from ultralytics.utils.torch_utils import autocast
 
-from .metrics import bbox_iou, probiou
+from .metrics import bbox_iou, probiou, SGKLD_loss
 from .tal import bbox2dist
 
 
@@ -144,9 +144,11 @@ class BboxLoss(nn.Module):
 class RotatedBboxLoss(BboxLoss):
     """Criterion class for computing training losses for rotated bounding boxes."""
 
-    def __init__(self, reg_max: int):
+    def __init__(self, reg_max: int, loss_fn='probiou'):
         """Initialize the RotatedBboxLoss module with regularization maximum and DFL settings."""
         super().__init__(reg_max)
+        assert loss_fn in {'probiou', 'sgkld'}
+        self.loss_fn = loss_fn
 
     def forward(
         self,
@@ -160,8 +162,14 @@ class RotatedBboxLoss(BboxLoss):
     ) -> tuple[torch.Tensor, torch.Tensor]:
         """Compute IoU and DFL losses for rotated bounding boxes."""
         weight = target_scores.sum(-1)[fg_mask].unsqueeze(-1)
-        iou = probiou(pred_bboxes[fg_mask], target_bboxes[fg_mask])
-        loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum
+
+        if self.loss_fn == 'probiou':
+            iou = probiou(pred_bboxes[fg_mask], target_bboxes[fg_mask])
+            loss_iou = ((1.0 - iou) * weight).sum() / target_scores_sum
+        elif self.loss_fn == 'sgkld':
+            loss_iou = SGKLD_loss(pred_bboxes[fg_mask], target_bboxes[fg_mask])
+        else:
+            raise ValueError(f'Uknown loss function: {self.loss_fn},  only support "probiou", "sgkld"')
 
         # DFL loss
         if self.dfl_loss:
@@ -662,11 +670,11 @@ class v8ClassificationLoss:
 class v8OBBLoss(v8DetectionLoss):
     """Calculates losses for object detection, classification, and box distribution in rotated YOLO models."""
 
-    def __init__(self, model):
+    def __init__(self, model, loss_fn='probiou'):
         """Initialize v8OBBLoss with model, assigner, and rotated bbox loss; model must be de-paralleled."""
         super().__init__(model)
         self.assigner = RotatedTaskAlignedAssigner(topk=10, num_classes=self.nc, alpha=0.5, beta=6.0)
-        self.bbox_loss = RotatedBboxLoss(self.reg_max).to(self.device)
+        self.bbox_loss = RotatedBboxLoss(self.reg_max, loss_fn).to(self.device)
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
         """Preprocess targets for oriented bounding box detection."""

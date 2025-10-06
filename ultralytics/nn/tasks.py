@@ -517,7 +517,7 @@ class OBBModel(DetectionModel):
         >>> results = model.predict(image_tensor)
     """
 
-    def __init__(self, cfg="yolo11n-obb.yaml", ch=3, nc=None, verbose=True):
+    def __init__(self, cfg="yolo11n-obb.yaml", ch=3, nc=None, verbose=True, loss_fn='probiou'):
         """
         Initialize YOLO OBB model with given config and parameters.
 
@@ -528,6 +528,7 @@ class OBBModel(DetectionModel):
             verbose (bool): Whether to display model information.
         """
         super().__init__(cfg=cfg, ch=ch, nc=nc, verbose=verbose)
+        self.loss_fn = loss_fn
 
     def init_criterion(self):
         """Initialize the loss criterion for the model."""
